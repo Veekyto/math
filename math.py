@@ -53,9 +53,10 @@ class Individual:
     def __init__(self):
         self.cost=0
         self.path=[]
+        self.borrow=None
         
 #得到不包含充电桩(0,33)和图书馆(19)的初始随机路径
-def init_population(pop_size=100,num=34):
+def init_population(pop_size=200,num=34):
     population=[]
     for i in range(pop_size):
         individual=Individual()
@@ -103,6 +104,15 @@ def elitism_selection(population):
     next_generation.extend(top_quarter * 2)
     return next_generation
 
+def tournament_selection(population,p=4):
+    next_generation = []
+    tournament_size = len(population) // p  
+    while len(next_generation) < len(population):
+        tournament_individuals = random.sample(population, tournament_size)
+        sorted_tournament_individuals = sorted(tournament_individuals, key=lambda x: x.cost)
+        next_generation.append(copy.deepcopy(sorted_tournament_individuals[0]))
+    return next_generation
+
 
 
 def roulette_wheel_selection(population):
@@ -114,7 +124,7 @@ def roulette_wheel_selection(population):
     next_generation = []
     for i in range(num_individuals):
         selected_index = random.choices(range(num_individuals), weights=selection_prob, k=1)[0]
-        next_generation.append(copy.copy(population[selected_index]))
+        next_generation.append(copy.deepcopy(population[selected_index]))
     return next_generation
 
 def mutate(individual,robot1,robot2,it,mutation_rate=0.1):
@@ -230,13 +240,18 @@ robotA=Robot(location=33,speed=8)
 robotB=Robot(location=0,speed=10)
 best_cost=[]
 iteration=[]
-population=init_population()
-for it in range(1,500):
+#设置种群大小
+population=init_population(pop_size=600)
+best_solution= Individual()
+best_solution.cost=float('inf')
+for it in range(1,1000):
     for individual in population:
         set_cost(individual,robotA,robotB)   
     sorted_population = sorted(population, key=lambda x: x.cost)
-    if it ==499:
-        print(get_actual_path(sorted_population[0].path))
+    if sorted_population[0].cost < best_solution.cost:
+        best_solution=copy.deepcopy(sorted_population[0])
+    if it %100==0:
+        print(it/100)
     if it%10==0:
         best_cost.append(sorted_population[0].cost)
         iteration.append(it)
@@ -253,24 +268,54 @@ for it in range(1,500):
         new_population.append(child1)
         new_population.append(child2)
     population=new_population
+individual_last=sorted_population[0]
+print(get_actual_path(best_solution.path))
+print(best_solution.cost)
+print(get_actual_path(individual_last.path))
+print(individual_last.cost)
+# T_max=3
+# T_min=0.001
+# T=T_max
+# cooling_rate=0.99
+# it2=0
+# iteration2=[]
+# best_cost2=[]
+# best=999
+# count1=0
+# count2=0
+# count3=0
+# while(T > T_min):
+#     it2 += 1
+#     new_individual = copy.deepcopy(individual_last)
+#     size = len(individual_last.path)
+#     i, j = random.sample(range(size), 2)
+#     new_individual.path[i], new_individual.path[j] = new_individual.path[j], new_individual.path[i]
+#     set_cost(individual_last, robotA, robotB)
+#     set_cost(new_individual, robotA, robotB)
+#     if new_individual.cost < individual_last.cost:
+#         individual_last = copy.copy(new_individual)
+#         count1+=1
+#     else:
+#         if random.random() < np.exp(-(new_individual.cost - individual_last.cost) / T):
+#            individual_last = copy.copy(new_individual)
+#            count2+=1
+#         else :
+#             count3+=1
+#     if it2 % 10 == 0:
+#         iteration2.append(it2)
+#         best_cost2.append(individual_last.cost)
+#     T *= cooling_rate
+#     if individual_last.cost<best:
+#         best=individual_last.cost
 
-
-plt.plot(iteration,best_cost)
+# print(individual_last.cost)
+# print(best)
+# print(count1)
+# print(count2)
+# print(count3)
+plt.figure()
+#plt.subplot(2,1,1)
+plt.plot(iteration,best_cost,'r',label='GA')
+#plt.subplot(2,1,2)
+#plt.plot(iteration2,best_cost2,'b',label='SA')
 plt.show()
-        
-
-    
-
-
-
-
-
-
-
-            
-
-
-
-
-
-
