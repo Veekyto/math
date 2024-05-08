@@ -74,7 +74,7 @@ shortest_path=[[[0],[0,1],[0,1,2],[0,1,2,3],[0,1,2,3,4],[0,1,2,3,4,5],[0,6],[0,1
       [[33,32,31,30,29,28,22,17,12,6,0],[33,27,21,16,15,14,9,8,2,1],[33,27,21,16,15,14,9,8,2],[33,27,21,16,15,14,9,3],[33,27,21,16,11,5,4],[33,27,21,16,11,5],[33,32,31,30,29,28,22,17,12,6],[33,27,21,16,15,14,9,8,7],[33,27,21,16,15,14,9,8],[33,27,21,16,15,14,9],[33,27,21,16,11,10],[33,27,21,16,11],[33,32,31,30,29,28,22,17,12],[33,32,31,25,19,18,13],[33,27,21,16,15,14],[33,27,21,16,15],[33,27,21,16],[33,32,31,30,29,28,22,17],[33,32,31,25,19,18],[33,32,31,25,19],[33,27,21,20],[33,27,21],[33,32,31,30,29,28,22],[33,32,31,25,24,23],[33,32,31,25,24],[33,32,31,25],[33,27,26],[33,27],[33,32,31,30,29,28],[33,32,31,30,29],[33,32,31,30],[33,32,31],[33,32],[33]]
       ]
 ###                                   #
-capacity=[0,6,4,7,5,3,3,5,3,4,3,4,4,2,3,8,2,2,4,0,3,1,5,3,6,5,6,5,6,6,2,6,2,0]
+capacity=[0,6,4,7,5,3,3,5,3,4,3,4,4,2,2,8,2,2,4,0,3,1,5,3,6,5,6,5,6,6,2,6,2,0]
 need_borrow=[1,2,3,4,12,14,16,22,23,26]
 
 class Robot:
@@ -141,7 +141,7 @@ def set_cost(individual,robot1,robot2):
         leisure_robot.location=i
         if i==19:
             leisure_robot=(lambda x, y: x if x.time < y.time else y)(robot1, robot2)
-    individual.borrow=check(actual_path)
+    #individual.borrow=check(actual_path)
     robot1.time+=shortest_distance[robot1.location][33]/robot1.speed
     if robot1.location!=19:
         robot1.time+=shortest_distance[robot1.location][19]/robot1.speed
@@ -152,8 +152,8 @@ def set_cost(individual,robot1,robot2):
     robotA.time+=shortest_distance[robotA.location][33]/robotA.speed
     robotB.time+=shortest_distance[robotB.location][0]/robotB.speed
     individual.cost=max(robot1.time,robot2.time)
-    if individual.borrow:
-       individual.cost+=0.3
+    # if individual.borrow:
+    #    individual.cost+=0.3
 
 def elitism_selection(population):
     sorted_population = sorted(population, key=lambda x: x.cost)
@@ -230,19 +230,25 @@ def pmx_cross(parent1, parent2,rate=0.5):
 
 def random_removal(individual):
     size=len(individual.path)
+    remove=[]
     random_int  = random.randint(0,size-1)
-    remove=individual.path.pop(random_int)
+    remove.append(individual.path.pop(random_int))
+    size=len(individual.path)
+    random_int  = random.randint(0,size-1)
+    remove.append(individual.path.pop(random_int))
     return remove
            
 
 def worst_removal(individual):
-    size=len(individual.path)
-    cost = [0]*size
-    cost[0] = shortest_distance[0][individual.path[0]]
-    cost[size-1] = shortest_distance[individual.path[size-1]][19]
-    for i in range(1,size -1):
-        cost[i] = shortest_distance[individual.path[i]][individual.path[i-1]] + shortest_distance[individual.path[i]][individual.path[i+1]]
-    remove = individual.path.pop(cost.index(max(cost)))
+    remove=[]
+    for _ in range(2):
+        size=len(individual.path)
+        cost = [0]*size
+        cost[0] = shortest_distance[0][individual.path[0]]
+        cost[size-1] = shortest_distance[individual.path[size-1]][19]
+        for i in range(1,size -1):
+            cost[i] = shortest_distance[individual.path[i]][individual.path[i-1]] + shortest_distance[individual.path[i]][individual.path[i+1]]
+        remove.append(individual.path.pop(cost.index(max(cost))))
     return remove
 
 
@@ -250,8 +256,9 @@ def shaw_removal(individual,alpha=0.8):
     size=len(individual.path)
     similarity = [0]*size
     random_node = random.choice(individual.path)
+    remove=[]
     for i in range(size):
-        if i != random_node:
+        if individual.path[i] != random_node:
             similarity[i] = alpha*shortest_distance[individual.path[i]][random_node]
             actual_path=get_actual_path(individual.path)
             index1=actual_path.index(random_node)
@@ -260,32 +267,35 @@ def shaw_removal(individual,alpha=0.8):
                 index1,index2=index2,index1
             if 19 not in actual_path[index1:index2]:
                 similarity[i]+=(1-alpha)
-    remove = individual.path.pop(similarity.index(max(similarity)))
+    remove.append(individual.path.pop(similarity.index(max(similarity))))
+    remove.append(random_node)
+    individual.path.remove(random_node)
     return remove
 
-def rebuild(individual,remove):
-    size=len(individual.path)
-    best_position = []
-    best_cost = float('inf')
-    new_individual=copy.copy(individual)
-    for position in range(size+1):
-        new_individual.path.insert(position, remove)
-        set_cost(new_individual,robotA,robotB)
-        cost=new_individual.cost
-        new_individual.path.remove(remove)
-        if cost < best_cost:
-            best_position = position
-            best_cost = cost
-    new_individual.path.insert(best_position, remove)
-    
+
+
+def rebuild(individual, remove):
+    new_individual = copy.copy(individual)
+    for removed_node in remove:
+        best_position = 0
+        best_cost = float('inf')
+        for position in range(len(new_individual.path) + 1):
+            new_individual.path.insert(position, removed_node)
+            set_cost(new_individual, robotA, robotB)  
+            cost = new_individual.cost
+            if cost < best_cost:
+                best_position = position
+                best_cost = cost
+            new_individual.path.remove(removed_node)
+        new_individual.path.insert(best_position, removed_node)
     return new_individual
    
 
 def removeAndRebuild(individual,alpha=0.5):
     a=random.random()
-    if a<0.4:
+    if a<0.2:
         remove=random_removal(individual)
-    elif a>=0.4 and a<=0.5:
+    elif a>=0.2 and a<=0.5:
         remove=shaw_removal(individual,alpha)
     else:
         remove=worst_removal(individual)
@@ -298,10 +308,10 @@ robotB=Robot(location=0,speed=10)
 best_cost=[]
 iteration=[]
 #设置种群大小
-population=init_population(pop_size=280)
+population=init_population(pop_size=400)
 best_solution= Individual()
 best_solution.cost=float('inf')
-for it in range(1,200):
+for it in range(1,400):
     for individual in population:
         set_cost(individual,robotA,robotB)
         if individual.cost < best_solution.cost and individual.borrow==False:
